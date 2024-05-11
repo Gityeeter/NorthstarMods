@@ -73,52 +73,57 @@ void function SetTitanAsElite( entity npc )
 	Assert( IsValid( npc ) && npc.IsTitan(), "Entity is not a Titan to set as Elite: " + npc )
 	if ( npc.IsTitan() )
 	{
-		SetSpawnOption_NPCTitan( npc, TITAN_MERC )
+		//SetSpawnOption_NPCTitan( npc, TITAN_BOSS )
 		SetSpawnOption_TitanSoulPassive1( npc, "pas_enhanced_titan_ai" )
 		SetSpawnOption_TitanSoulPassive2( npc, "pas_defensive_core" )
 		SetSpawnOption_TitanSoulPassive3( npc, "pas_assault_reactor" )
 		SetSpawnflags( npc, SF_TITAN_SOUL_NO_DOOMED_EVASSIVE_COMBAT )
 	}
+	ExtraSpawner_SetUpTitanSeatedPilot(npc)
+	printt("REEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE TitanNPC" + TitanHasNpcPilot(npc) )
+	entity titanSoul = npc.GetTitanSoul()
+	//titanSoul.soul.seatedNpcPilot.modelAsset = GetPlayerArray()[0].GetModelName()
+	//printt("//////////////////////////////////////Model set TitanNPC" + TitanHasNpcPilot(npc) )
 }
 
 void function SetEliteTitanPostSpawn( entity npc )
 {
-	if( GetGameState() != eGameState.Playing )
-		return
+	// if( GetGameState() != eGameState.Playing )
+	// 	return
 
-	Assert( IsValid( npc ) && npc.IsTitan(), "Entity is not a Titan to set as Elite: " + npc )
-	if ( npc.IsTitan() )
-	{
-		npc.EnableNPCFlag( NPC_NO_PAIN | NPC_NO_GESTURE_PAIN | NPC_NEW_ENEMY_FROM_SOUND | NPC_DIRECTIONAL_MELEE | NPC_IGNORE_FRIENDLY_SOUND ) //NPC_AIM_DIRECT_AT_ENEMY
-		npc.EnableNPCMoveFlag( NPCMF_PREFER_SPRINT | NPCMF_DISABLE_MOVE_TRANSITIONS )
-		npc.DisableNPCFlag( NPC_PAIN_IN_SCRIPTED_ANIM | NPC_ALLOW_FLEE | NPC_USE_SHOOTING_COVER )
-		npc.DisableNPCMoveFlag( NPCMF_WALK_NONCOMBAT )
-		npc.SetCapabilityFlag( bits_CAP_NO_HIT_SQUADMATES, false )
-		npc.SetDefaultSchedule( "SCHED_COMBAT_WALK" )
-		npc.kv.AccuracyMultiplier = 3.0
-		npc.kv.WeaponProficiency = eWeaponProficiency.PERFECT
-		npc.SetTargetInfoIcon( GetTitanCoreIcon( GetTitanCharacterName( npc ) ) )
-		npc.AssaultSetFightRadius( 2000 )
-		npc.SetEngagementDistVsWeak( 0, 800 )
-		npc.SetEngagementDistVsStrong( 0, 800 )
-		SetTitanWeaponSkin( npc )
-		HideCrit( npc )
-		npc.SetTitle( npc.GetSettingTitle() )
-		ShowName( npc )
+	// Assert( IsValid( npc ) && npc.IsTitan(), "Entity is not a Titan to set as Elite: " + npc )
+	// if ( npc.IsTitan() )
+	// {
+	// 	npc.EnableNPCFlag( NPC_NO_PAIN | NPC_NO_GESTURE_PAIN | NPC_NEW_ENEMY_FROM_SOUND | NPC_DIRECTIONAL_MELEE | NPC_IGNORE_FRIENDLY_SOUND ) //NPC_AIM_DIRECT_AT_ENEMY
+	// 	npc.EnableNPCMoveFlag( NPCMF_PREFER_SPRINT | NPCMF_DISABLE_MOVE_TRANSITIONS )
+	// 	npc.DisableNPCFlag( NPC_PAIN_IN_SCRIPTED_ANIM | NPC_ALLOW_FLEE | NPC_USE_SHOOTING_COVER )
+	// 	npc.DisableNPCMoveFlag( NPCMF_WALK_NONCOMBAT )
+	// 	npc.SetCapabilityFlag( bits_CAP_NO_HIT_SQUADMATES, false )
+	// 	npc.SetDefaultSchedule( "SCHED_COMBAT_WALK" )
+	// 	npc.kv.AccuracyMultiplier = 3.0
+	// 	npc.kv.WeaponProficiency = eWeaponProficiency.PERFECT
+	// 	npc.SetTargetInfoIcon( GetTitanCoreIcon( GetTitanCharacterName( npc ) ) )
+	// 	npc.AssaultSetFightRadius( 2000 )
+	// 	npc.SetEngagementDistVsWeak( 0, 800 )
+	// 	npc.SetEngagementDistVsStrong( 0, 800 )
+	// 	SetTitanWeaponSkin( npc )
+	// 	HideCrit( npc )
+	// 	npc.SetTitle( npc.GetSettingTitle() )
+	// 	ShowName( npc )
 
-		entity soul = npc.GetTitanSoul()
-		if( IsValid( soul ) )
-		{
-			soul.SetPreventCrits( true )
-			soul.SetShieldHealthMax( 5000 )
-			soul.SetShieldHealth( soul.GetShieldHealthMax() )
-		}
+	// 	entity soul = npc.GetTitanSoul()
+	// 	if( IsValid( soul ) )
+	// 	{
+	// 		soul.SetPreventCrits( true )
+	// 		soul.SetShieldHealthMax( 5000 )
+	// 		soul.SetShieldHealth( soul.GetShieldHealthMax() )
+	// 	}
 
-		if( GetTitanCharacterName( npc ) == "vanguard" ) //Monarchs never use their core, but can track their shields to simulate a player-like behavior
-			thread MonitorEliteMonarchShield( npc )
-		else
-			thread MonitorEliteTitanCore( npc )
-	}
+	// 	if( GetTitanCharacterName( npc ) == "vanguard" ) //Monarchs never use their core, but can track their shields to simulate a player-like behavior
+	// 		thread MonitorEliteMonarchShield( npc )
+	// 	else
+	// 		thread MonitorEliteTitanCore( npc )
+	// }
 }
 
 void function MonitorEliteTitanCore( entity npc )
@@ -295,4 +300,48 @@ void function SetTitanWeaponSkin( entity npc, int skinindex = 1, int camoindex =
 		weapon.SetSkin( skinindex )
 		weapon.SetCamo( camoindex )
 	}
+}
+
+void function ExtraSpawner_SetUpTitanSeatedPilot(entity titan, int pilotHealth = 100, int pilotWeaponProficiency = eWeaponProficiency.PERFECT, asset pilotModel = $"", string pilotTitle = "Pilot")
+{
+	// debug
+	//print( "USING ExtraSpawner_SetUpTitanSeatedPilot()" )
+	entity titanSoul = titan.GetTitanSoul()
+	if ( !IsValid( titanSoul ) )
+		return
+
+	entity pilot = ExtraSpawner_SpawnPilotElite( titan.GetOrigin(), < 0, 0, 0 >, titan.GetTeam() )
+	// this destroys pilot and runs OnNpcPilotBecomesTitan() callback in this file
+	NpcPilotBecomesTitan( pilot, titan )
+
+	// do some override settings
+	if ( pilotModel != $"" ) // if specific model given, we override model with that
+		titanSoul.soul.seatedNpcPilot.modelAsset		= pilotModel
+	if ( pilotTitle != "" )
+		titanSoul.soul.seatedNpcPilot.title				= pilotTitle
+	titanSoul.soul.seatedNpcPilot.proficiency			= pilotWeaponProficiency
+	titanSoul.soul.seatedNpcPilot.health				= pilotHealth
+}
+entity function ExtraSpawner_SpawnPilotElite( vector pos, vector rot, int team, void functionref( entity pilot ) pilotHandler = null, bool mpValidModelOnly = true )
+{
+	entity pilot = CreateNPC( "npc_pilot_elite", team, pos, rot )//CreateNPC( "npc_soldier", team, pos, rot )
+	ExtraSpawner_ApplyNPCGrenadeWeapon( pilot ) // grenade have to be given before DispatchSpawn()
+
+	ExtraSpawner_SetUpSpawnedNPC( pilot ) // generic setup for any npc in this file
+	DispatchSpawn( pilot ) // don't delayed dispatchSpawn()
+
+	// give weapons
+	ExtraSpawner_ApplyNPCWeapons( pilot )
+	// update model before setup
+	asset modelAsset = NPC_PILOT_ALLOWED_MODELS[ RandomInt( NPC_PILOT_ALLOWED_MODELS.len() ) ]
+	pilot.SetModel( modelAsset )
+
+	pilot.SetMaxHealth( NPC_PILOT_MAX_HEALTH )
+	pilot.SetHealth( NPC_PILOT_MAX_HEALTH )
+	pilot.SetTitle( "Pilot" ) // "#NPC_PILOT", using a localized string will cause auto-titan's title to be wrong
+
+	// main setup for npc pilots spawn from this file
+	ExtraSpawner_SetUpNPCPilot( pilot )
+
+	return pilot
 }

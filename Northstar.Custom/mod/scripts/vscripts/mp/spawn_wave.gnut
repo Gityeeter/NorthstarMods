@@ -97,7 +97,7 @@ struct{
 	bool shouldUseCampaignShieldCaptains = false
 	bool shouldUseCampaignTicks = false
 	bool arcTitanShouldUseArcCannon = false
-	bool allowEliteTitans = false
+	bool allowEliteTitans = true
 	bool allowTitanfallBlock = false
 	bool allowGruntGrenades = false
 	bool visibleDropPoints = false
@@ -116,7 +116,7 @@ global array< array<WaveSpawnEvent> > WaveSpawnEvents
 
 const float FD_TITAN_AOE_REACTTIME = 3.0 //This is in seconds
 const int FD_ELITE_TITAN_MIN_HEALTH_CAP = 2500
-const int FD_ELITE_TITAN_MAX_HEALTH_CAP = 7500
+const int FD_ELITE_TITAN_MAX_HEALTH_CAP = 5000
 
 
 

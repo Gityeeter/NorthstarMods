@@ -80,7 +80,7 @@ void function SetTitanAsElite( entity npc )
 		SetSpawnOption_TitanSoulPassive3( npc, "pas_assault_reactor" )
 		SetSpawnflags( npc, SF_TITAN_SOUL_NO_DOOMED_EVASSIVE_COMBAT )
 		EliteTitanThink(npc)
-		//thread testfunction(npc)
+	//	thread testfunction(npc)
 	}
 }
 
@@ -344,6 +344,7 @@ void function waitAndEject(entity titan)
 entity function SpawnGruntDuringEject( vector pos, vector rot, int team, void functionref( entity pilot ) pilotHandler = null, bool mpValidModelOnly = true )
 {
 	entity pilot = CreateNPC( "npc_soldier", team, pos + < 0, 0, 150>, rot )//CreateNPC( "npc_soldier", team, pos, rot )
+	AddEntityCallback_OnPostDamaged( pilot, pilotDamaged )
 	DispatchSpawn( pilot ) // don't delayed dispatchSpawn()
 	pilot.SetTitle( "Budget Pilot" )
 	pilot.TakeActiveWeapon()
@@ -362,14 +363,19 @@ void function testfunction(entity titan)
 		SpawnGruntDuringEject(titan.GetOrigin() , < 0, 0, 0 > , titan.GetTeam())
 	}
 }
-
+void function pilotDamaged(entity pilot, var damageInfo)
+{
+	int damageSourceId = DamageInfo_GetDamageSourceIdentifier( damageInfo )
+	printt("##########################damage sourceID is :" + damageSourceId )
+	printt("##########################damaged amount is :" + DamageInfo_GetDamage( damageInfo ) )
+}
 void function BudgetPilotDamagedCallBack( entity pilot, var damageInfo )
 {
 	if ( !IsAlive( pilot ) )
 		return
 
 	int damageSourceId = DamageInfo_GetDamageSourceIdentifier( damageInfo )
-	if ( damageSourceId == eDamageSourceId.fall )
+	if ( damageSourceId == -1 )
 	{
 		DamageInfo_ScaleDamage( damageInfo, 0)
 	}

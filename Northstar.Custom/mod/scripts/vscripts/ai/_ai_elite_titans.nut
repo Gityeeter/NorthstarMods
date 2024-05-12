@@ -26,6 +26,7 @@ local script file (i.e SetSpawnOption_AISettings).
 void function EliteTitans_Init()
 {
 	AddOnRodeoStartedCallback( PilotStartRodeoOnEliteTitan )
+	AddDamageCallback( "npc_soldier", BudgetPilotDamagedCallBack )
 }
 
 void function PilotStartRodeoOnEliteTitan( entity pilot, entity titan )
@@ -78,6 +79,8 @@ void function SetTitanAsElite( entity npc )
 		SetSpawnOption_TitanSoulPassive2( npc, "pas_defensive_core" )
 		SetSpawnOption_TitanSoulPassive3( npc, "pas_assault_reactor" )
 		SetSpawnflags( npc, SF_TITAN_SOUL_NO_DOOMED_EVASSIVE_COMBAT )
+		EliteTitanThink(npc)
+		//thread testfunction(npc)
 	}
 }
 
@@ -294,5 +297,80 @@ void function SetTitanWeaponSkin( entity npc, int skinindex = 1, int camoindex =
 		entity weapon = primaryWeapons[0]
 		weapon.SetSkin( skinindex )
 		weapon.SetCamo( camoindex )
+	}
+}
+//function to check damage and call eject functions
+void function EliteTitanThink( entity titan)
+{
+	AddEntityCallback_OnPostDamaged( titan, EliteTitan_PostDamageCallback )
+}
+
+void function EliteTitan_PostDamageCallback( entity titan, var damageInfo )
+{
+	if ( !IsAlive( titan ) )
+		return
+
+	entity titanOwner = titan.GetBossPlayer()
+	if ( IsValid( titanOwner ) )
+	{
+		Assert( titanOwner.IsPlayer() )
+		Assert( GetPlayerTitanInMap( titanOwner ) == titan )
+		return
+	}
+
+	if ( !GetDoomedState( titan ) )
+		return
+
+	if ( titan.GetTitanSoul().IsEjecting() )
+		return
+
+	if ( titan.GetTitanSoul().IsDoomed() )
+	{
+		thread waitAndEject(titan)
+	}
+}
+void function waitAndEject(entity titan)
+{
+	wait 2
+	if ( !IsValid( titan ) )
+		return
+	if ( !IsAlive( titan ) )
+		return
+	if ( titan.ContextAction_IsActive() && !titan.ContextAction_IsBusy() )
+		return
+	SpawnGruntDuringEject(titan.GetOrigin() , < 0, 0, 0 > , titan.GetTeam())
+	thread AutoTitan_SelfDestruct( titan )
+}
+entity function SpawnGruntDuringEject( vector pos, vector rot, int team, void functionref( entity pilot ) pilotHandler = null, bool mpValidModelOnly = true )
+{
+	entity pilot = CreateNPC( "npc_soldier", team, pos + < 0, 0, 150>, rot )//CreateNPC( "npc_soldier", team, pos, rot )
+	DispatchSpawn( pilot ) // don't delayed dispatchSpawn()
+	pilot.SetTitle( "Budget Pilot" )
+	pilot.TakeActiveWeapon()
+	pilot.GiveWeapon( "mp_weapon_epg", ["slowProjectile"] )
+	pilot.SetMaxHealth( 750 )
+	pilot.SetHealth( 750 )
+	pilot.SetVelocity( < 0, 0, 1500> )
+	return pilot
+}
+
+void function testfunction(entity titan)
+{
+	while (true)
+	{
+		wait 1
+		SpawnGruntDuringEject(titan.GetOrigin() , < 0, 0, 0 > , titan.GetTeam())
+	}
+}
+
+void function BudgetPilotDamagedCallBack( entity pilot, var damageInfo )
+{
+	if ( !IsAlive( pilot ) )
+		return
+
+	int damageSourceId = DamageInfo_GetDamageSourceIdentifier( damageInfo )
+	if ( damageSourceId == eDamageSourceId.fall )
+	{
+		DamageInfo_ScaleDamage( damageInfo, 0)
 	}
 }

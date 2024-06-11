@@ -646,7 +646,7 @@ WeaponData
 
 		pas_legion_weapon
 		{
-			"ammo_clip_size"   								"140"
+			"ammo_clip_size"   								"300"
 		}
 		pas_legion_spinup
 		{

@@ -43,7 +43,7 @@ Selector Combat
 	SelectSchedule_EnemyTooClose
 	SelectSchedule_CombatFace
 	SelectSchedule_CantSeeEnemy
-	SelectSchedule_WeaponBlocked
+	//SelectSchedule_WeaponBlocked
 Selector_End
 
 Selector CombatAggressive

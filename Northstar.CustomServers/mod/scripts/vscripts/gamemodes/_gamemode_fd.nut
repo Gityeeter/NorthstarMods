@@ -64,6 +64,7 @@ struct {
 	bool harvesterShieldDown
 	bool harvesterHalfHealth
 	float harvesterDamageTaken
+	float lastHarvesterLowHPAnnouncedTime
 	array<vector> DropPodSpawns = []
 	array<string> waveAnnouncement = []
 	vector shopPosition
@@ -1456,7 +1457,7 @@ void function OnPlayerDisconnectedOrDestroyed( entity player )
 	foreach( entity npc in GetNPCArray() )
 	{
 		entity BossPlayer = npc.GetBossPlayer()
-		if ( IsValidPlayer( BossPlayer ) && IsAlive( npc ) && npc.GetBossPlayer() == player && npc.GetTeam() == TEAM_MILITIA && ( IsMinion( npc ) || IsFragDrone( npc ) ) )
+		if ( IsValidPlayer( BossPlayer ) && IsAlive( npc ) && BossPlayer == player && npc.GetTeam() == TEAM_MILITIA && ( IsMinion( npc ) || IsFragDrone( npc ) ) )
 			npc.Die()
 	}
 }
@@ -2286,7 +2287,7 @@ void function OnHarvesterDamaged( entity harvester, var damageInfo )
 		case eDamageSourceId.mp_titanweapon_flame_wall:
 		case eDamageSourceId.mp_titanweapon_flame_ring:
 		case eDamageSourceId.mp_titancore_flame_wave:
-		damageAmount *= 0.025
+		damageAmount *= 0.03
 		break
 
 		//Taken from consts, 1:1 to vanilla formula
@@ -2295,6 +2296,7 @@ void function OnHarvesterDamaged( entity harvester, var damageInfo )
 		break
 
 		//Taken from consts, 1:1 to vanilla formula
+		case eDamageSourceId.mp_weapon_rocket_launcher:
 		case eDamageSourceId.mp_titanweapon_rocketeer_rocketstream:
 		damageAmount *= GENERATOR_DAMAGE_MORTAR_ROCKET_MULTIPLIER
 		break
@@ -2308,13 +2310,13 @@ void function OnHarvesterDamaged( entity harvester, var damageInfo )
 	{
 		switch( damageSourceID )
 		{
-			case eDamageSourceId.titanEmpField: //If Arc Titans uses Arc Cannon then their Electric Aura wont devastate Harvester Shield as a tradeoff, the Arc Cannon itself will do that instead
+			case eDamageSourceId.titanEmpField:
 				if( GetArcTitanWeaponOption() )
 					damageAmount = 25
 			break
 
 			case eDamageSourceId.mp_titanweapon_arc_cannon:
-			damageAmount = 1200
+			damageAmount = 1000
 			break
 
 			case eDamageSourceId.mp_weapon_grenade_emp: //This is for Grunts using Arc Grenades, so they aren't totally useless
@@ -2419,10 +2421,15 @@ void function OnHarvesterDamaged( entity harvester, var damageInfo )
 
 		if( healthpercent <= 15 )
 		{
-			if( RandomInt( 100 ) >= 50 )
-				PlayFactionDialogueToTeam( "fd_baseLowHealth", TEAM_MILITIA )
-			else
-				PlayFactionDialogueToTeam( "fd_baseShieldLowHolding", TEAM_MILITIA )
+			if( fd_harvester.lastDamage > file.lastHarvesterLowHPAnnouncedTime )
+			{
+				if( RandomInt( 100 ) >= 50 )
+					PlayFactionDialogueToTeam( "fd_baseLowHealth", TEAM_MILITIA )
+				else
+					PlayFactionDialogueToTeam( "fd_baseShieldLowHolding", TEAM_MILITIA )
+				
+				file.lastHarvesterLowHPAnnouncedTime = Time() + 5.0
+			}
 		}
 
 		if( newHealth <= 0 )
@@ -2486,6 +2493,7 @@ void function HealthScaleByDifficulty( entity ent )
 void function OnFriendlyNPCTitanSpawnThreaded( entity npc )
 {
 	FD_UpdateTitanBehavior()
+	WaitFrame()
 	WaitTillHotDropComplete( npc )
 	Highlight_SetFriendlyHighlight( npc, "sp_friendly_hero" )
 	npc.Highlight_SetParam( 1, 0, HIGHLIGHT_COLOR_FRIENDLY )
@@ -2524,6 +2532,7 @@ void function OnEnemyNPCPlayerTitanSpawnThreaded( entity npc )
 	}
 
 	WaitTillHotDropComplete( npc )
+	WaitFrame()
 	SetTargetName( npc, GetTargetNameForID( aiTypeID ) )
 
 	if( !IsAlive( npc ) )
@@ -3043,7 +3052,7 @@ void function HarvesterThink()
 	while ( IsHarvesterAlive( harvester ) )
 	{
 		float currentTime = Time()
-		float deltaTime = currentTime -lastTime
+		float deltaTime = currentTime - lastTime
 
 		if ( IsValid( fd_harvester.particleShield ) )
 		{
@@ -3065,7 +3074,7 @@ void function HarvesterThink()
 			if( IsValid( fd_harvester.particleShield ) )
 				fd_harvester.particleShield.Destroy()
 
-		if ( ( ( currentTime-fd_harvester.lastDamage ) >= harvesterShieldRegenDelay ) && ( harvester.GetShieldHealth() < harvester.GetShieldHealthMax() ) )
+		if ( ( ( currentTime - fd_harvester.lastDamage ) >= harvesterShieldRegenDelay ) && ( harvester.GetShieldHealth() < harvester.GetShieldHealthMax() ) )
 		{
 			if( !IsValid( fd_harvester.particleShield ) )
 				generateShieldFX( fd_harvester )
@@ -3251,8 +3260,6 @@ void function FD_DropshipSpawnDropship()
 	file.playersInShip = 0
 	file.dropshipState = eDropshipState.InProgress
 	file.dropship = CreateDropship( TEAM_MILITIA, file.dropshipSpawnPosition, file.dropshipSpawnAngles )
-
-	file.dropship.SetModel( $"models/vehicle/crow_dropship/crow_dropship_hero.mdl" )
 	file.dropship.SetValueForModelKey( $"models/vehicle/crow_dropship/crow_dropship_hero.mdl" )
 
 	DispatchSpawn( file.dropship )
@@ -3448,28 +3455,32 @@ void function FD_SmokeHealTeammate( entity player, entity target, int shieldRest
 void function FD_BatteryHealTeammate( entity rider, entity titan, entity battery )
 {
 	entity soul = titan.GetTitanSoul()
-	int healingAmount = GetSegmentHealthForTitan( titan )
-
-	float ampedHealthSegmentFrac = GetCurrentPlaylistVarFloat( "amped_battery_health_frac", 2.0 )
-	float healthSegmentFrac = GetCurrentPlaylistVarFloat( "battery_health_frac", 0.5 )
-	float frac = IsAmpedBattery( battery ) ? ampedHealthSegmentFrac : healthSegmentFrac
-
-	int shieldDifference = soul.GetShieldHealthMax() - soul.GetShieldHealth()
-	int addHealth = int( healingAmount * frac )
-	int totalHealth = minint( titan.GetMaxHealth(), titan.GetHealth() + addHealth )
-
-	int TotalHealing = shieldDifference + totalHealth
-	int HealScore = ( TotalHealing / 100 )
-
-	float coreFrac = GetCurrentPlaylistVarFloat( "battery_core_frac", 0.2 )
+	
 	if( IsAmpedBattery( battery ) )
-		AddCreditToTitanCoreBuilder( titan, coreFrac )
+		AddCreditToTitanCoreBuilder( titan, GetCurrentPlaylistVarFloat( "battery_core_frac", 0.2 ) )
+	
+	thread FD_BatteryHealTeammate_Threaded( rider, titan, titan.GetHealth(), soul.GetShieldHealth() )
+}
 
+void function FD_BatteryHealTeammate_Threaded( entity rider, entity titan, int ogHealth, int ogShield )
+{
+	WaitFrame() //Do this way because it's ironically more accurate to track the health change when healing teammates with batteries
+	
+	if( !IsAlive( titan ) )
+		return
+	
+	entity soul = titan.GetTitanSoul()
+	
+	int healAmount = titan.GetHealth() - ogHealth
+	int shieldAmount = soul.GetShieldHealth() - ogShield
+	int totalHealing = healAmount + shieldAmount
+	int HealScore = totalHealing / 100
+	
 	if( IsValidPlayer( rider ) )
 	{
 		AddPlayerScore( rider, "FDTeamHeal", null, "", HealScore )
 		if( rider in file.playerAwardStats )
-			file.playerAwardStats[rider]["heals"] += float( TotalHealing )
+			file.playerAwardStats[rider]["heals"] += float( totalHealing )
 		rider.AddToPlayerGameStat( PGS_DEFENSE_SCORE, HealScore )
 		UpdatePlayerScoreboard( rider )
 	}
@@ -3575,7 +3586,7 @@ void function ShowTitanfallBlockHintToPlayer( entity player )
 {
 	#if SERVER
 	wait 10
-	IsValidPlayer( player )
+	if( IsValidPlayer( player ) )
 		NSSendLargeMessageToPlayer( player, "Titanfall Block Active", "Your titan cannot be summoned, but you can help team mates not losing theirs, steal batteries!", 60, "rui/callsigns/callsign_hidden" )
 	#endif
 }
@@ -3586,6 +3597,68 @@ void function FD_SetupEpilogue()
 }
 
 void function FD_Epilogue()
+{
+	if( IsHarvesterAlive( fd_harvester.harvester ) || file.isLiveFireMap )
+		thread FD_Epilogue_threaded()
+	else
+	{
+		StartEvacDropship()
+		NPC_NoTarget( fd_harvester.harvester )
+		
+		foreach ( entity npc in GetNPCArray() )
+		{
+			if( npc.GetTeam() == TEAM_IMC )
+			{
+				npc.ClearEnemy()
+				npc.AssaultPoint( fd_harvester.harvester.GetOrigin() )
+				npc.AssaultSetGoalRadius( 12000 )
+				npc.AssaultSetGoalHeight( 512 )
+				npc.AssaultSetFightRadius( 8000 )
+			}
+		}
+	}
+}
+
+void function StartEvacDropship()
+{
+	thread SetRespawnAndWait( false )
+	thread CheckIfAnyPlayerLeft( TEAM_MILITIA )
+	thread Evac( TEAM_MILITIA, 5.0, 20.0, 15.0, EvacEpiloguePlayerCanBoard, EvacEpilogueShouldLeaveEarly, FD_Epilogue_Evac )
+}
+
+void function CheckIfAnyPlayerLeft( int evacTeam )
+{
+	wait GAME_EPILOGUE_PLAYER_RESPAWN_LEEWAY
+	float startTime = Time()
+
+	OnThreadEnd(
+		function() : ( evacTeam )
+		{
+			SetTeamActiveObjective( evacTeam, "EG_DropshipExtractEvacPlayersKilled" )
+			SetTeamActiveObjective( GetOtherTeam( evacTeam ), "EG_StopExtractEvacPlayersKilled" )
+			thread FD_Epilogue_threaded()
+
+			// score for killing the entire evacing team
+			foreach ( entity player in GetPlayerArray() )
+			{
+				if ( player.GetTeam() == evacTeam )
+					continue
+
+				AddPlayerScore( player, "TeamBonusKilledAll" )
+			}
+		}
+	)
+	while( true )
+	{
+		if( GetPlayerArrayOfTeam_Alive( evacTeam ).len() == 0 )
+			break
+		if( GetGameState() == eGameState.Postmatch )
+			return
+		WaitFrame()
+	}
+}
+
+void function FD_Epilogue_Evac( entity dropship )
 {
 	thread FD_Epilogue_threaded()
 }
@@ -3667,7 +3740,7 @@ void function FD_Epilogue_threaded()
 		{
 			if( !IsValidPlayer( medalPlayer ) )
 				continue
-
+			
 			if( i == 4 )
 				break
 
@@ -3702,7 +3775,7 @@ bool function isFinalWave()
 
 bool function isSecondWave()
 {
-	return ( (GetGlobalNetInt( "FD_currentWave" ) + 1 ) == 1 )
+	return ( ( GetGlobalNetInt( "FD_currentWave" ) + 1 ) == 1 )
 }
 
 //Idk the precise behavior of the summary panel in vanilla, but this is the closest i got so far
@@ -3783,6 +3856,8 @@ void function RegisterPostSummaryScreenForMatch( bool matchwon )
 					UpdatePlayerStat( player, "fd_stats", "easyWins" )
 					player.SetPersistentVar( "fd_match[" + eFDXPType.EASY_VICTORY + "]", FD_XP_EASY_WIN )
 					player.SetPersistentVar( "fd_count[" + eFDXPType.EASY_VICTORY + "]", FD_XP_EASY_WIN )
+					if ( player.GetPlayerNetInt( "xpMultiplier" ) > 0 && doubleXP )
+						diffbonus *= 2
 					if ( player.GetPlayerNetInt( "xpMultiplier" ) > 0 || doubleXP )
 					{
 						player.SetPersistentVar( "fd_match[" + eFDXPType.DIFFICULTY_BONUS + "]", diffbonus )
@@ -3808,7 +3883,9 @@ void function RegisterPostSummaryScreenForMatch( bool matchwon )
 					fdXPamount += FD_XP_NORMAL_WIN
 					break
 				case eFDDifficultyLevel.HARD:
-					if ( player.GetPlayerNetInt( "xpMultiplier" ) > 0 || doubleXP )
+					if ( doubleXP )
+						diffbonus *= 2
+					if ( player.GetPlayerNetInt( "xpMultiplier" ) > 0 )
 						diffbonus *= 2
 					UpdatePlayerStat( player, "fd_stats", "hardWins" )
 					player.SetPersistentVar( "fd_match[" + eFDXPType.HARD_VICTORY + "]", FD_XP_HARD_WIN )
@@ -3821,7 +3898,9 @@ void function RegisterPostSummaryScreenForMatch( bool matchwon )
 					break
 				case eFDDifficultyLevel.MASTER:
 					diffbonus = 10
-					if ( player.GetPlayerNetInt( "xpMultiplier" ) > 0 || doubleXP )
+					if ( doubleXP )
+						diffbonus *= 2
+					if ( player.GetPlayerNetInt( "xpMultiplier" ) > 0 )
 						diffbonus *= 2
 					UpdatePlayerStat( player, "fd_stats", "masterWins" )
 					player.SetPersistentVar( "fd_match[" + eFDXPType.MASTER_VICTORY + "]", FD_XP_MASTER_WIN )
@@ -3834,7 +3913,9 @@ void function RegisterPostSummaryScreenForMatch( bool matchwon )
 					break
 				case eFDDifficultyLevel.INSANE:
 					diffbonus = 15
-					if ( player.GetPlayerNetInt( "xpMultiplier" ) > 0 || doubleXP )
+					if ( doubleXP )
+						diffbonus *= 2
+					if ( player.GetPlayerNetInt( "xpMultiplier" ) > 0 )
 						diffbonus *= 2
 					UpdatePlayerStat( player, "fd_stats", "insaneWins" )
 					player.SetPersistentVar( "fd_match[" + eFDXPType.INSANE_VICTORY + "]", FD_XP_INSANE_WIN )

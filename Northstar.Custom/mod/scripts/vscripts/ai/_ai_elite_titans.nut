@@ -146,21 +146,21 @@ void function MonitorEliteTitanCore( entity npc )
 
 		npc.WaitSignal( "CoreEnd" )
 
-		switch ( difficultyLevel )
-		{
-			case eFDDifficultyLevel.EASY:
-			case eFDDifficultyLevel.NORMAL:
-			case eFDDifficultyLevel.HARD:
-				wait RandomFloatRange( 20.0, 40.0 )
-				break
-			case eFDDifficultyLevel.MASTER:
-			case eFDDifficultyLevel.INSANE:
-				wait RandomFloatRange( 40.0, 60.0 )
-				break
+			switch ( difficultyLevel )
+			{
+				case eFDDifficultyLevel.EASY:
+				case eFDDifficultyLevel.NORMAL:
+				case eFDDifficultyLevel.HARD:
+					wait RandomFloatRange( 20.0, 40.0 )
+					break
+				case eFDDifficultyLevel.MASTER:
+				case eFDDifficultyLevel.INSANE:
+					wait RandomFloatRange( 40.0, 60.0 )
+					break
+			}
 		}
 	}
 }
-
 void function MonitorEliteMonarchShield( entity npc )
 {
 	Assert( IsValid( npc ) && npc.IsTitan() && GetTitanCharacterName( npc ) == "vanguard", "Entity is not a Elite Monarch Titan: " + npc )
@@ -310,7 +310,7 @@ void function Elite_NuclearPayload_DoomCallback( entity titan, var damageInfo )
 	entity soul = titan.GetTitanSoul()
 	if ( soul.IsEjecting() || GameRules_GetGameMode() != FD )
 		return
-	
+
 	if( IsAlive( titan ) && titan.IsNPC() && titan.GetTeam() == TEAM_IMC && titan.ai.bossTitanType == TITAN_MERC )
 		thread MonitorEliteDoomStateForEject( titan )
 }
@@ -321,11 +321,11 @@ void function MonitorEliteDoomStateForEject( entity titan )
 	soul.EndSignal( "OnDestroy" )
 	soul.EndSignal( "OnDeath" )
 	soul.EndSignal( "TitanEjectionStarted" )
-	
+
 	while( IsAlive( titan ) )
 	{
 		wait 1 //Check every second and not less for a more relaxed opportunity to kill the Elite without it Nuke ejecting, this ability should not be a highlight one
-		
+
 		int enemyInRange = 0
 		array< entity > surroundingEnemies = GetPlayerArrayEx( "any", TEAM_ANY, TEAM_ANY, titan.GetOrigin(), 640 )
 		surroundingEnemies.extend( GetNPCArrayEx( "npc_titan", TEAM_ANY, TEAM_ANY, titan.GetOrigin(), 640 ) ) //Turrets and hacked Spectres used to be considered but that would trigger code way too often
